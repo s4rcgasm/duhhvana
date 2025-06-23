@@ -7,39 +7,37 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <!-- Sound Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
         /* --- Basic Setup & Retro Feel --- */
         html, body {
             height: 100%;
+            width: 100%;
             margin: 0;
             overflow: hidden;
+            background-color: #1a1a2e;
         }
         body {
-            background-color: #1a1a2e;
             color: #e0e0e0;
             font-family: 'Press Start 2P', cursive;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100%;
-            box-sizing: border-box;
-            position: relative; 
+            position: relative;
         }
 
         .game-wrapper {
             display: flex;
             flex-direction: row;
-            flex-wrap: wrap;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             gap: 20px;
-            width: 100%;
-            height: 100%;
             padding: 1rem;
             box-sizing: border-box;
+            /* Wrapper will be scaled by JS, so we use fixed base dimensions here */
+            width: calc(800px + 290px); /* Game width + UI panel width + gap */
+            height: 600px;
+            transform-origin: center center;
         }
 
         /* --- Game Container --- */
@@ -51,6 +49,7 @@
             width: 800px; /* Fixed internal width */
             height: 600px; /* Fixed internal height */
             touch-action: none;
+            flex-shrink: 0;
         }
 
         #game-container.shake { animation: shake 0.4s; }
@@ -73,12 +72,12 @@
 
         #ui-panel { text-align: left; width: 250px; flex-shrink: 0; padding-left: 20px; }
         #branding { font-size: 1.2rem; color: #fff; text-align: center; margin-bottom: 20px; text-shadow: 2px 2px 0px #e94560; }
-        #score-display, #leaderboard h2, #controls-panel h2 { color: #e94560; font-size: 1.2rem; margin-bottom: 10px; }
-        #leaderboard, #controls-panel { margin-top: 20px; }
+        #score-display, #leaderboard h2 { color: #e94560; font-size: 1.2rem; margin-bottom: 10px; }
+        #leaderboard { margin-top: 20px; }
         #high-scores-list { list-style-type: none; padding: 0; font-size: 0.8rem; height: 150px; overflow-y: auto; }
         #high-scores-list li { padding: 4px 0; border-bottom: 1px dashed #0f3460; }
-        
-        .toggle-button { font-family: 'Press Start 2P', cursive; font-size: 0.8rem; background: var(--border-color); color: var(--text-color); border: none; padding: 8px 12px; cursor: pointer; margin-top: 10px; }
+        #controls-toggle { margin-top: 20px; }
+        #controls-toggle button { font-family: 'Press Start 2P', cursive; font-size: 0.7rem; padding: 10px; background-color: #0f3460; color: #fff; border: 1px solid #fff; cursor: pointer; width: 100%; }
         
         /* --- Overlays (Loading/Modals) --- */
         .game-overlay {
@@ -105,26 +104,40 @@
         
         #touch-controls {
             position: fixed; bottom: 0; left: 0; width: 100%;
-            padding: 20px; box-sizing: border-box; display: none;
+            padding: 20px; box-sizing: border-box; 
+            display: none; /* Hidden by default */
             justify-content: space-between; align-items: flex-end;
             user-select: none; z-index: 102;
+            pointer-events: none; /* Allow clicks to pass through overlay */
         }
+         #touch-controls .touch-button {
+            pointer-events: auto; /* Buttons are clickable */
+        }
+
         .touch-dpad { display: flex; gap: 10px; }
         .touch-button { width: 60px; height: 60px; background-color: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; font-family: sans-serif; }
         #touch-shoot { width: 80px; height: 80px; }
         
+        /* Media query for when to switch to vertical layout and hide UI panel */
         @media (max-width: 1100px) {
-            .game-wrapper { flex-direction: column; align-items: center; }
-            #ui-panel { width: 100%; max-width: 400px; margin-top: 20px; text-align: center; padding-left: 0; }
+            .game-wrapper {
+                flex-direction: column;
+                width: 100%;
+                height: auto;
+            }
+            #ui-panel {
+                width: 90%;
+                max-width: 600px; /* Match game width */
+                margin-top: 20px;
+                text-align: center;
+                padding-left: 0;
+            }
         }
-        @media (max-width: 820px) {
-            body { padding: 0; }
-            .game-wrapper { gap: 0; }
-            #game-container { width: 100%; height: 100%; max-width: none; border: none; }
-            #ui-panel { display: none; }
-        }
-        @media (max-width: 768px) and (pointer: coarse) {
-            #touch-controls-toggle { display: block !important; }
+
+         /* Media query for showing touch controls on mobile */
+        @media (pointer: coarse) {
+            #touch-controls { display: flex; }
+            #controls-toggle { display: block; }
         }
     </style>
 </head>
@@ -139,15 +152,43 @@
                 </div>
             </div>
             <canvas id="gameCanvas"></canvas>
-            <div id="message-modal" class="game-overlay"> ... </div>
-            <div id="duhhvana-reward-modal" class="game-overlay"> ... </div>
+            <div id="message-modal" class="game-overlay">
+                <div class="overlay-content">
+                    <h2 id="message-title"></h2>
+                    <p id="message-text"></p>
+                    <div id="high-score-form" style="display: none;">
+                        <p>You made the leaderboard! Enter your name:</p>
+                        <input type="text" id="player-name-input" maxlength="10" placeholder="Player">
+                        <button id="submit-score-button">Submit</button>
+                    </div>
+                    <div class="modal-buttons">
+                        <button id="restart-button">Play Again</button>
+                        <button id="share-button">Share</button>
+                    </div>
+                </div>
+            </div>
+            <div id="duhhvana-reward-modal" class="game-overlay">
+                <div class="overlay-content">
+                    <h2>You Have Achieved DUHHVANA!</h2>
+                    <p>True bliss is yours. As a reward for your dedication to ignorance, claim what is rightfully yours.</p>
+                    <div id="win-high-score-form" style="display: none;">
+                        <p>You made the leaderboard! Enter your name:</p>
+                        <input type="text" id="win-player-name-input" maxlength="10" placeholder="Player">
+                        <button id="win-submit-score-button">Submit Score</button>
+                    </div>
+                    <div class="modal-buttons">
+                        <button id="claim-reward-button">CLAIM YOUR REWARD</button>
+                        <button id="restart-button-win">Play Again</button>
+                    </div>
+                </div>
+            </div>
         </div>
         <div id="ui-panel">
             <div id="branding">sarcgasm.com</div>
             <div id="score-display">SCORE: 0</div>
             <div id="leaderboard"><h2>Leaderboard</h2><ol id="high-scores-list"></ol></div>
-            <div id="controls-panel">
-                <button class="toggle-button" id="touch-controls-toggle" style="display: none;">Toggle Controls</button>
+            <div id="controls-toggle" style="display: none;">
+                <button id="touch-toggle-button">Use Swipe Controls</button>
             </div>
         </div>
     </div>
@@ -162,34 +203,68 @@
 
     <script>
         window.onload = function() {
+            const gameWrapper = document.querySelector('.game-wrapper');
             const gameContainer = document.getElementById('game-container');
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
             
-            let GAME_WIDTH = 800; let GAME_HEIGHT = 600;
-            canvas.width = GAME_WIDTH; canvas.height = GAME_HEIGHT;
+            const INTERNAL_WIDTH = 800;
+            const INTERNAL_HEIGHT = 600;
+            canvas.width = INTERNAL_WIDTH;
+            canvas.height = INTERNAL_HEIGHT;
 
-            function resizeGame() { /* ... unchanged ... */ }
-            resizeGame();
+            // --- NEW: Responsive Scaling ---
+            function resizeGame() {
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                const scaleX = viewportWidth / gameWrapper.offsetWidth;
+                const scaleY = viewportHeight / gameWrapper.offsetHeight;
+                
+                const scale = Math.min(scaleX, scaleY) * 0.95; // 0.95 for some padding
+                
+                gameWrapper.style.transform = `scale(${scale})`;
+            }
             window.addEventListener('resize', resizeGame);
-            
-            const INTERNAL_WIDTH = 800; const INTERNAL_HEIGHT = 600;
+            resizeGame(); // Initial resize
 
             const GRAVITY = 0.5, PLAYER_SPEED = 5, JUMP_FORCE = -12, PROJECTILE_SPEED = 10, OBJECT_SPAWN_RATE = 120, MAX_HIGH_SCORES = 5;
+            
             const truthsList = [ "PUTIN RIDES HORSES BARE-CHESTED", "WATER IS WET", "EARTH IS (MOSTLY) ROUND", "GRAVITY PULLS YOU DOWN", "THE SUN IS A STAR", "DOGS BARK", "FIRE IS HOT", "ICE IS COLD", "SPIDERS HAVE 8 LEGS", "TREES PRODUCE OXYGEN", "TRUTH IS A PROCESS", "THE GREAT WALL IS IN CHINA", "BEWARE CONFIRMATION BIAS", "THE UNIVERSE IS BIG", "CLMATE CHANGE IS REAL", "THIS GAME IS FUNNY AF" ];
             const liesList = [ "THE EARTH IS FLAT", "VACCINES CAUSE AUTISM", "ALTERNATIVE FACTS ARE VALID", "ELON MUSK IS NOT A NAZI", "JEFF BEZOS IS HANDSOME", "THE MOON LANDING WAS FAKE", "BIRDS AREN'T REAL", "CHOCOLATE IS A VEGETABLE", "TRICKLE-DOWN ECONOMICS WORKS", "5G TOWERS SPREAD VIRUSES", "DIET SODA IS HEALTHY", "READING TERMS AND CONDITIONS", "I'LL START MY DIET TOMORROW", "I AM ALWAYS RIGHT", "THIS IS THE FINAL DRAFT", "I READ THE TERMS OF SERVICE" ];
+
             const blockColors = ['#B22234', '#FFFFFF', '#3C3B6E'];
+
             let keys = {}, projectiles = [], fallingObjects = [], platforms = [], frameCount = 0, gameOver = false, gameWon = false, score = 0, audioStarted = false;
 
+            // --- NEW: Added Music Files ---
             const soundFiles = {
-                fire: 'sounds/trump_fakenewsmedia.mp3', jump: 'sounds/trump_jumpingnoise_mockingtrans.mp3',
-                grunt: 'sounds/trump_cantdoit.mp3', truthLand: 'sounds/trump_grabembythepussy.mp3',
-                lieLand: 'sounds/trump_youcandoanything.mp3', truthShot: 'sounds/trump_radicallunatics.mp3',
-                lieShot: 'sounds/trump_disrespectful.mp3', gameOver: '', duhhvana: '',
-                bgm: 'sounds/bgm.mp3', winMusic: 'sounds/win_music.mp3', loseMusic: 'sounds/lose_music.mp3'
+                fire: 'sounds/trump_fakenewsmedia.mp3',
+                jump: 'sounds/trump_jumpingnoise_mockingtrans.mp3',
+                grunt: 'sounds/trump_cantdoit.mp3',
+                truthLand: 'sounds/trump_grabembythepussy.mp3',
+                lieLand: 'sounds/trump_youcandoanything.mp3',
+                truthShot: 'sounds/trump_radicallunatics.mp3',
+                lieShot: 'sounds/trump_disrespectful.mp3',
+                gameOverSfx: 'sounds/trump_wordwarthree.mp3',
+                duhhvanaSfx: 'sounds/trump_didIsaythatIcantbelieve.mp3',
+                // Music files (placeholders)
+                bgm: 'sounds/bgm.mp3',
+                winMusic: 'sounds/win.mp3',
+                loseMusic: 'sounds/lose.mp3',
+                introMusic: 'sounds/intro.mp3'
             };
-
-            const fallbackSounds = { /* ... unchanged ... */ };
+            
+            // --- NEW: Fallback sounds for new music ---
+            const fallbackSounds = {
+                fire: new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination(),
+                jump: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.05, sustain: 0, release: 0.2 } }).toDestination(),
+                grunt: new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0 } }).toDestination(),
+                land: new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 2, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination(),
+                shot: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 } }).toDestination(),
+                gameOver: new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.2, decay: 1, sustain: 0, release: 1 } }).toDestination(),
+                duhhvana: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.1, decay: 0.5, sustain: 0.3, release: 1 } }).toDestination(),
+                music: new Tone.Synth({ oscillator: { type: 'pulse', width: 0.6 }, envelope: { attack: 0.2, decay: 1, sustain: 0.2, release: 1 } }).toDestination()
+            };
             
             const players = new Tone.Players(soundFiles, {
                 onload: () => console.log('Custom sounds loaded!'),
@@ -197,40 +272,96 @@
             }).toDestination();
             players.crossOrigin = "anonymous";
             
-            // --- NEW BGM and Music Players ---
-            const bgmPlayer = new Tone.Player({url: soundFiles.bgm, loop: true, autostart: false, crossOrigin: "anonymous"}).toDestination();
-            const winPlayer = new Tone.Player({url: soundFiles.winMusic, autostart: false, crossOrigin: "anonymous"}).toDestination();
-            const losePlayer = new Tone.Player({url: soundFiles.loseMusic, autostart: false, crossOrigin: "anonymous"}).toDestination();
-
+            // --- MODIFIED: Music playback control ---
             function playSound(soundName) {
                 if (!audioStarted) return;
-                switch(soundName) {
-                    case 'fire': fallbackSounds.fire.triggerAttackRelease('C5', '8n'); break;
-                    /* ... all other cases ... */
+                
+                // Stop and play logic for music
+                if (soundName === 'bgm' || soundName === 'winMusic' || soundName === 'loseMusic' || soundName === 'introMusic') {
+                    // Stop all other music before playing a new one
+                    ['bgm', 'winMusic', 'loseMusic', 'introMusic'].forEach(m => {
+                        if (players.has(m) && players.player(m).state === 'started') players.player(m).stop();
+                    });
                 }
-                if (players.has(soundName) && players.player(soundName).loaded) {
-                    players.player(soundName).start();
-                }
-            }
-            
-            const player = { /* ... unchanged ... */ };
-            
-            // --- All other game functions (player.draw, player.update, etc) remain the same ---
 
-            function triggerGameOver(reason) {
-                if (gameOver) return;
-                gameOver = true;
-                bgmPlayer.stop();
-                if (losePlayer.loaded) losePlayer.start(); else playSound('gameOver');
-                triggerScreenShake();
-                showModal('Game Over!', reason || 'You faced reality.');
+                if (players.has(soundName) && players.player(soundName).loaded) {
+                    if (soundName === 'bgm') players.player(soundName).loop = true;
+                    players.player(soundName).start();
+                } else {
+                     // Fallback sounds
+                     switch(soundName) {
+                        case 'fire': fallbackSounds.fire.triggerAttackRelease('C5', '8n'); break;
+                        case 'jump': fallbackSounds.jump.triggerAttackRelease('G5', '32n'); break;
+                        case 'grunt': fallbackSounds.grunt.triggerAttackRelease('8n'); break;
+                        case 'truthLand': case 'lieLand': fallbackSounds.land.triggerAttackRelease('C2', '8n'); break;
+                        case 'truthShot': case 'lieShot': fallbackSounds.shot.triggerAttackRelease('A5', '16n'); break;
+                        case 'gameOverSfx': fallbackSounds.gameOver.triggerAttackRelease('C3', '1n'); break;
+                        case 'duhhvanaSfx': fallbackSounds.duhhvana.triggerAttackRelease('C5', '1n'); break;
+                        case 'loseMusic': fallbackSounds.music.triggerAttackRelease('A2', '1n'); break;
+                        case 'winMusic': fallbackSounds.music.triggerAttackRelease('C4', '1n'); break;
+                    }
+                }
             }
+            
+            const player = {
+                x: INTERNAL_WIDTH / 2 - 20, y: INTERNAL_HEIGHT - 50, width: 32, height: 48,
+                dx: 0, dy: 0, onGround: true, walkingFrame: 0, isMoving: false, isShooting: false, shootCooldown: 0, lastGruntFrame: 0,
+            };
+            
+            player.draw = function() { if (this.isShooting) { ctx.save(); const eW = this.width * 1.25, eH = this.height * 1.25; const dX = this.x - (eW - this.width) / 2, dY = this.y - (eH - this.height) / 2; ctx.translate(dX + eW / 2, dY + eH / 2); ctx.rotate(-0.1); const rX = -eW / 2, rY = -eH / 2; ctx.fillStyle = '#2980b9'; ctx.fillRect(rX, rY + 18 * 1.25, eW, eH - 18 * 1.25); ctx.fillStyle = '#c0392b'; ctx.fillRect(rX + (eW / 2) - 4, rY + 18 * 1.25, 8, 20); ctx.fillStyle = '#e74c3c'; ctx.fillRect(rX, rY, eW, 20 * 1.25); ctx.fillStyle = '#2c3e50'; ctx.fillRect(rX + 7 * 1.25, rY + 8 * 1.25, 6 * 1.25, 6 * 1.25); ctx.fillRect(rX + 19 * 1.25, rY + 8 * 1.25, 6 * 1.25, 6 * 1.25); ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.moveTo(rX, rY + 3 * 1.25); ctx.lineTo(rX + 5 * 1.25, rY - 16 * 1.25); ctx.lineTo(rX + eW - 5 * 1.25, rY - 10 * 1.25); ctx.lineTo(rX + eW, rY + 3 * 1.25); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.moveTo(rX + 16 * 1.25, rY - 10 * 1.25); ctx.lineTo(rX + 12 * 1.25, rY - 15 * 1.25); ctx.lineTo(rX + 16 * 1.25, rY - 18 * 1.25); ctx.lineTo(rX + 20 * 1.25, rY - 15 * 1.25); ctx.lineTo(rX + 16 * 1.25, rY - 10 * 1.25); ctx.fill(); ctx.fillStyle = '#bdc3c7'; const mX = 0, mY = rY + 20 * 1.25; ctx.beginPath(); ctx.moveTo(mX - 4, mY); ctx.lineTo(mX + 4, mY); ctx.lineTo(mX + 16, mY - 25); ctx.lineTo(mX - 16, mY - 25); ctx.closePath(); ctx.fill(); ctx.restore(); } else { ctx.fillStyle = '#2980b9'; ctx.fillRect(this.x, this.y + 18, this.width, this.height - 18); ctx.fillStyle = '#c0392b'; ctx.fillRect(this.x + (this.width / 2) - 3, this.y + 18, 6, 16); ctx.fillStyle = '#f39c12'; ctx.fillRect(this.x, this.y, this.width, 20); ctx.fillStyle = '#2c3e50'; ctx.fillRect(this.x + 7, this.y + 8, 6, 6); ctx.fillRect(this.x + 19, this.y + 8, 6, 6); ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.moveTo(this.x, this.y + 3); ctx.lineTo(this.x + 5, this.y - 16); ctx.lineTo(this.x + this.width - 5, this.y - 10); ctx.lineTo(this.x + this.width, this.y + 3); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.moveTo(this.x + 16, this.y - 10); ctx.lineTo(this.x + 12, this.y - 15); ctx.lineTo(this.x + 16, this.y - 18); ctx.lineTo(this.x + 20, this.y - 15); ctx.lineTo(this.x + 16, this.y - 10); ctx.fill(); if (this.isMoving && this.onGround) { ctx.fillStyle = '#1c1c1c'; const frame = Math.floor(this.walkingFrame / 6) % 2; if (frame === 0) { ctx.fillRect(this.x + 5, this.y + this.height, 10, 5); ctx.fillRect(this.x + this.width - 15, this.y + this.height - 2, 10, 5); } else { ctx.fillRect(this.x + 5, this.y + this.height - 2, 10, 5); ctx.fillRect(this.x + this.width - 15, this.y + this.height, 10, 5); } } } };
+            player.update = function() {
+                this.isMoving = false;
+                if (keys['ArrowLeft'] && this.x > 0) { this.x -= PLAYER_SPEED; this.isMoving = true; }
+                if (keys['ArrowRight'] && this.x < INTERNAL_WIDTH - this.width) { this.x += PLAYER_SPEED; this.isMoving = true; }
+                if (this.isMoving && this.onGround && frameCount - this.lastGruntFrame > 20) { playSound('grunt'); this.lastGruntFrame = frameCount; }
+                if (this.shootCooldown > 0) { this.shootCooldown--; } else { this.isShooting = false; }
+                if (keys['ArrowUp'] && this.onGround) { this.dy = JUMP_FORCE; this.onGround = false; playSound('jump'); }
+                this.dy += GRAVITY; this.y += this.dy; this.onGround = false;
+                if (this.y + this.height >= INTERNAL_HEIGHT) { this.y = INTERNAL_HEIGHT - this.height; this.dy = 0; this.onGround = true; }
+                platforms.forEach(platform => { if (this.x < platform.x + platform.width && this.x + this.width > platform.x && this.y + this.height > platform.y && this.y + this.height < platform.y + platform.height + 15 && this.dy > 0) { this.y = platform.y - this.height; this.dy = 0; this.onGround = true; } });
+                this.draw();
+            };
+            player.shoot = function() { if (this.shootCooldown > 0) return; playSound('fire'); this.isShooting = true; this.shootCooldown = 15; projectiles.push({ x: this.x + this.width / 2 - 4, y: this.y, width: 8, height: 8, color: '#fff000', update() { this.y -= PROJECTILE_SPEED; ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.width, this.height); } }); };
+
+            const goal = { x: INTERNAL_WIDTH - 200, y: 20, width: 180, height: 60, draw() { ctx.fillStyle = 'rgba(255, 215, 0, 0.5)'; ctx.fillRect(this.x, this.y, this.width, this.height); ctx.strokeStyle = 'gold'; ctx.lineWidth = 3; ctx.strokeRect(this.x, this.y, this.width, this.height); ctx.fillStyle = '#fff'; ctx.font = '14px "Press Start 2P"'; ctx.textAlign = 'center'; ctx.fillText('DUHHVANA', this.x + this.width / 2, this.y + 35); } };
+            
+            function spawnFallingObject() { const isTruth = Math.random() > 0.5; const text = isTruth ? truthsList[Math.floor(Math.random() * truthsList.length)] : liesList[Math.floor(Math.random() * liesList.length)]; const width = 320; const height = 40; const x = Math.random() * (INTERNAL_WIDTH - width); fallingObjects.push({ x: x, y: -height, width: width, height: height, type: isTruth ? 'truth' : 'lie', text: text, color: blockColors[Math.floor(Math.random() * blockColors.length)], update() { this.y += 2; ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.width, this.height); ctx.fillStyle = this.color === '#FFFFFF' ? '#000' : '#fff'; ctx.font = '10px "Press Start 2P"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(this.text, this.x + this.width / 2, this.y + this.height / 2); } }); }
+            function handleCollisions() { projectiles.forEach((proj, projIndex) => { fallingObjects.forEach((obj, objIndex) => { if (proj.x < obj.x + obj.width && proj.x + proj.width > obj.x && proj.y < obj.y + obj.height && proj.y + proj.height > obj.y) { if (obj.type === 'truth') { score += 10; playSound('truthShot'); } else { score -= 10; playSound('lieShot'); } projectiles.splice(projIndex, 1); fallingObjects.splice(objIndex, 1); } }); }); fallingObjects.forEach((obj) => { if (player.x < obj.x + obj.width && player.x + player.width > obj.x && player.y < obj.y + obj.height && player.y + player.height > obj.y) { triggerGameOver("You were smushed by bullshit!"); } }); if (player.x < goal.x + goal.width && player.x + player.width > goal.x && player.y < goal.y + goal.height && player.y + player.height > goal.y) { triggerGameWin(); } }
+            
+            function triggerScreenShake() { gameContainer.classList.add('shake'); setTimeout(() => { gameContainer.classList.remove('shake'); }, 400); }
+            
+            function handleObjectLanding() {
+                fallingObjects.forEach((obj, index) => {
+                    let landed = false, landingY = INTERNAL_HEIGHT;
+                    if (obj.y + obj.height >= INTERNAL_HEIGHT) { landed = true; landingY = INTERNAL_HEIGHT; }
+                    platforms.forEach(p => { if (obj.x < p.x + p.width && obj.x + obj.width > p.x && obj.y + obj.height >= p.y && obj.y + obj.height <= p.y + 20) { landed = true; landingY = p.y; } });
+                    if (landed) {
+                        if (obj.type === 'lie') {
+                            score += 15;
+                            platforms.push({ x: obj.x, y: landingY - obj.height, width: obj.width, height: obj.height, color: '#0f3460' });
+                            playSound('lieLand');
+                        } else {
+                            score -= 15;
+                            if (platforms.length > 0) platforms.pop();
+                            playSound('truthLand');
+                            triggerScreenShake();
+                        }
+                        fallingObjects.splice(index, 1);
+                    } else if (obj.y > INTERNAL_HEIGHT) {
+                        fallingObjects.splice(index, 1);
+                    }
+                });
+            }
+            function updateScore() { document.getElementById('score-display').textContent = `SCORE: ${score}`; }
+            function showModal(title, text) { document.getElementById('message-title').textContent = title; document.getElementById('message-text').textContent = text; const highScores = getHighScores(); const isHighScore = highScores.length < MAX_HIGH_SCORES || score > highScores[highScores.length - 1]?.score; document.getElementById('high-score-form').style.display = isHighScore ? 'block' : 'none'; document.getElementById('message-modal').style.display = 'flex'; }
+            
+            function triggerGameOver(reason) { if (gameOver) return; gameOver = true; playSound('loseMusic'); playSound('gameOverSfx'); triggerScreenShake(); showModal('Game Over!', reason || 'You faced reality.'); }
             
             function triggerGameWin() {
                 if (gameWon) return;
                 gameWon = true;
-                bgmPlayer.stop();
-                if (winPlayer.loaded) winPlayer.start(); else playSound('duhhvana');
+                playSound('winMusic');
+                playSound('duhhvanaSfx');
                 const highScores = getHighScores();
                 const isHighScore = highScores.length < MAX_HIGH_SCORES || score > highScores[highScores.length - 1]?.score;
                 document.getElementById('win-high-score-form').style.display = isHighScore ? 'block' : 'none';
@@ -238,44 +369,179 @@
             }
             
             function resetGame() {
-                /* ... unchanged, but add music handling ... */
-                winPlayer.stop();
-                losePlayer.stop();
-                if(bgmPlayer.loaded) bgmPlayer.start();
+                projectiles = []; fallingObjects = []; platforms = [];
+                frameCount = 0; gameOver = false; gameWon = false; score = 0;
+                updateScore();
+                player.x = INTERNAL_WIDTH / 2 - 20; player.y = INTERNAL_HEIGHT - 50; player.dy = 0;
+                document.getElementById('message-modal').style.display = 'none';
+                document.getElementById('duhhvana-reward-modal').style.display = 'none';
+                if(animationFrameId) cancelAnimationFrame(animationFrameId);
+                
+                playSound('bgm'); // Start BGM on reset
                 gameLoop();
             }
 
-            // --- Event Listeners ---
+            function getHighScores() { const scores = localStorage.getItem('duhhvanaHighScores'); return scores ? JSON.parse(scores) : []; }
+            function saveHighScore(name) { const highScores = getHighScores(); highScores.push({ name: name || "Player", score: score }); highScores.sort((a, b) => b.score - a.score); highScores.splice(MAX_HIGH_SCORES); localStorage.setItem('duhhvanaHighScores', JSON.stringify(highScores)); displayHighScores(); }
+            function displayHighScores() { const highScores = getHighScores(); const list = document.getElementById('high-scores-list'); list.innerHTML = ''; highScores.forEach(s => { const li = document.createElement('li'); li.textContent = `${s.name}: ${s.score}`; list.appendChild(li); }); if (highScores.length === 0) { list.innerHTML = '<li>No scores yet!</li>'} }
+            
+            let animationFrameId;
+            function gameLoop() { 
+                if (gameOver || gameWon) { cancelAnimationFrame(animationFrameId); return; }
+                ctx.clearRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT); frameCount++; 
+                if (frameCount % OBJECT_SPAWN_RATE === 0) spawnFallingObject(); 
+                goal.draw(); 
+                platforms.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.width, p.height); ctx.strokeStyle = '#1e90ff'; ctx.strokeRect(p.x, p.y, p.width, p.height); }); 
+                projectiles.forEach((proj, index) => { proj.update(); if (proj.y < 0) projectiles.splice(index, 1); }); 
+                fallingObjects.forEach(obj => obj.update()); 
+                player.update(); handleObjectLanding(); handleCollisions(); updateScore(); 
+                animationFrameId = requestAnimationFrame(gameLoop); 
+            }
+
             const loadingScreen = document.getElementById('loading-screen');
             const loadingStatus = document.getElementById('loading-status');
             function startGame(e) {
                 e.preventDefault();
                 loadingStatus.textContent = "Loading Sounds...";
-                
                 if (!audioStarted) {
                     Tone.start().then(() => Tone.loaded().then(() => {
                         audioStarted = true;
                         loadingScreen.style.display = 'none';
-                        if(bgmPlayer.loaded) bgmPlayer.start();
-                        resetGame();
+                        playSound('introMusic'); // Play intro music first
+                        // A short delay before starting the main game allows intro to play
+                        setTimeout(resetGame, 1500); 
                     }));
+                } else {
+                     Tone.loaded().then(() => {
+                        loadingScreen.style.display = 'none';
+                        resetGame();
+                    });
                 }
             }
             loadingScreen.addEventListener('click', startGame, { once: true });
             loadingScreen.addEventListener('touchend', startGame, { once: true });
             
-            // --- Controls Toggle ---
-            const touchControlsToggle = document.getElementById('touch-controls-toggle');
-            const touchControls = document.getElementById('touch-controls');
-            touchControlsToggle.addEventListener('click', () => {
-                const isVisible = touchControls.style.display === 'flex';
-                touchControls.style.display = isVisible ? 'none' : 'flex';
-            });
+            window.addEventListener('keydown', (e) => { keys[e.code] = true; if (e.code === 'Space' && !gameOver && !gameWon) { e.preventDefault(); player.shoot(); } });
+            window.addEventListener('keyup', (e) => { keys[e.code] = false; });
             
-            // Swipe and Tap controls on game canvas
-            let touchStartX = 0, touchStartY = 0;
-            gameContainer.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY; }, { passive: true });
-            gameContainer.addEventListener('touchend', (e) => { /*... swipe/tap logic ...*/ });
+            function setupModalButton(buttonId, action) {
+                const button = document.getElementById(buttonId);
+                button.addEventListener('click', action);
+                button.addEventListener('touchend', (e) => { e.preventDefault(); action(); });
+            }
+
+            setupModalButton('restart-button', resetGame);
+            setupModalButton('restart-button-win', resetGame);
+            setupModalButton('submit-score-button', () => { const nameInput = document.getElementById('player-name-input'); saveHighScore(nameInput.value); document.getElementById('high-score-form').style.display = 'none'; });
+            setupModalButton('win-submit-score-button', () => { const nameInput = document.getElementById('win-player-name-input'); saveHighScore(nameInput.value); document.getElementById('win-high-score-form').style.display = 'none'; });
+            setupModalButton('claim-reward-button', () => { window.open('http://www.stephenprime.com', '_blank'); });
+            setupModalButton('share-button', () => {
+                try {
+                    navigator.clipboard.writeText(window.location.href);
+                    alert("Page URL copied to clipboard!");
+                } catch (err) {
+                    console.error('Failed to copy: ', err);
+                    alert("Could not copy URL. Please share manually.");
+                }
+            });
+
+            // --- NEW: Advanced Touch Controls Logic ---
+            let touchMode = 'buttons'; // 'buttons' or 'swipe'
+            let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+            const SWIPE_THRESHOLD = 30; // Min pixels for a swipe
+            const SWIPE_UP_THRESHOLD = -50; // Min vertical pixels for jump
+            const TAP_TIME_THRESHOLD = 200; // Max ms for a tap
+
+            const touchControlsUI = document.getElementById('touch-controls');
+            const toggleButton = document.getElementById('touch-toggle-button');
+            
+            toggleButton.addEventListener('click', () => {
+                if (touchMode === 'buttons') {
+                    touchMode = 'swipe';
+                    toggleButton.textContent = 'Use Button Controls';
+                    touchControlsUI.style.display = 'none';
+                } else {
+                    touchMode = 'buttons';
+                    toggleButton.textContent = 'Use Swipe Controls';
+                    touchControlsUI.style.display = 'flex';
+                }
+            });
+
+            gameContainer.addEventListener('touchstart', (e) => {
+                if (touchMode !== 'swipe') return;
+                e.preventDefault();
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
+            }, { passive: false });
+
+            gameContainer.addEventListener('touchmove', (e) => {
+                if (touchMode !== 'swipe') return;
+                e.preventDefault();
+                const touchX = e.touches[0].clientX;
+                if (touchX < touchStartX - SWIPE_THRESHOLD) {
+                    keys['ArrowLeft'] = true;
+                    keys['ArrowRight'] = false;
+                } else if (touchX > touchStartX + SWIPE_THRESHOLD) {
+                    keys['ArrowRight'] = true;
+                    keys['ArrowLeft'] = false;
+                }
+            }, { passive: false });
+
+            gameContainer.addEventListener('touchend', (e) => {
+                if (touchMode !== 'swipe') return;
+                e.preventDefault();
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                const touchTime = Date.now() - touchStartTime;
+
+                const deltaX = touchEndX - touchStartX;
+                const deltaY = touchEndY - touchStartY;
+
+                // Reset movement keys
+                keys['ArrowLeft'] = false;
+                keys['ArrowRight'] = false;
+
+                // Check for Swipe Up (Jump)
+                if (deltaY < SWIPE_UP_THRESHOLD && Math.abs(deltaX) < Math.abs(deltaY)) {
+                    if (player.onGround) {
+                        keys['ArrowUp'] = true;
+                        // a little hack to ensure jump key is unset
+                        setTimeout(() => keys['ArrowUp'] = false, 50);
+                    }
+                } 
+                // Check for Tap (Shoot)
+                else if (Math.abs(deltaX) < SWIPE_THRESHOLD && Math.abs(deltaY) < SWIPE_THRESHOLD && touchTime < TAP_TIME_THRESHOLD) {
+                    player.shoot();
+                }
+            }, { passive: false });
+
+
+            // --- Mobile On-Screen Button Controls ---
+            const touchLeft = document.getElementById('touch-left');
+            const touchRight = document.getElementById('touch-right');
+            const touchUp = document.getElementById('touch-up');
+            const touchShoot = document.getElementById('touch-shoot');
+
+            function handleButtonTouch(element, keyName, isShootButton = false) {
+                element.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if(touchMode !== 'buttons') return;
+                    keys[keyName] = true;
+                    if (isShootButton) player.shoot();
+                }, { passive: false });
+                element.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    if(touchMode !== 'buttons') return;
+                    keys[keyName] = false;
+                }, { passive: false });
+            }
+            handleButtonTouch(touchLeft, 'ArrowLeft');
+            handleButtonTouch(touchRight, 'ArrowRight');
+            handleButtonTouch(touchUp, 'ArrowUp');
+            handleButtonTouch(touchShoot, 'Space', true);
+
+            displayHighScores();
         };
     </script>
 </body>
