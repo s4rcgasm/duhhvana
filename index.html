@@ -16,79 +16,72 @@
             margin: 0;
             overflow: hidden;
             background-color: #1a1a2e;
-        }
-        body {
             color: #e0e0e0;
             font-family: 'Press Start 2P', cursive;
+        }
+        body {
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
+            padding: 1rem;
+            box-sizing: border-box;
         }
 
         .game-wrapper {
             display: flex;
-            flex-direction: row;
             align-items: center;
             justify-content: center;
-            gap: 20px;
-            padding: 1rem;
-            box-sizing: border-box;
-            /* Wrapper will be scaled by JS, so we use fixed base dimensions here */
-            width: calc(800px + 290px); /* Game width + UI panel width + gap */
-            height: 600px;
-            transform-origin: center center;
+            width: 100%;
+            height: 100%;
+            max-width: 1200px;
         }
 
         /* --- Game Container --- */
         #game-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 800 / 600; /* CRITICAL: Maintains 4:3 aspect ratio */
+            max-width: 800px; /* Max size on large screens when UI is present */
             border: 4px solid #0f3460;
             box-shadow: 0 0 20px #0f3460, inset 0 0 15px rgba(15, 52, 96, 0.7);
             background-color: #000;
-            position: relative;
-            width: 800px; /* Fixed internal width */
-            height: 600px; /* Fixed internal height */
-            touch-action: none;
             flex-shrink: 0;
         }
 
         #game-container.shake { animation: shake 0.4s; }
         @keyframes shake {
-          10%, 90% { transform: translate3d(-1px, 0, 0); }
-          20%, 80% { transform: translate3d(2px, 0, 0); }
-          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-          40%, 60% { transform: translate3d(4px, 0, 0); }
+          10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); }
+          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); }
         }
 
         canvas {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
             display: block;
             background: #0d1117;
             image-rendering: pixelated;
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%;
-            height: 100%;
         }
 
-        #ui-panel { text-align: left; width: 250px; flex-shrink: 0; padding-left: 20px; }
+        /* UI Panel: Hidden by default, shown on wide screens */
+        #ui-panel {
+            display: none;
+            text-align: left;
+            width: 250px;
+            padding-left: 20px;
+            flex-shrink: 0;
+        }
         #branding { font-size: 1.2rem; color: #fff; text-align: center; margin-bottom: 20px; text-shadow: 2px 2px 0px #e94560; }
         #score-display, #leaderboard h2 { color: #e94560; font-size: 1.2rem; margin-bottom: 10px; }
         #leaderboard { margin-top: 20px; }
         #high-scores-list { list-style-type: none; padding: 0; font-size: 0.8rem; height: 150px; overflow-y: auto; }
         #high-scores-list li { padding: 4px 0; border-bottom: 1px dashed #0f3460; }
-        #controls-toggle { margin-top: 20px; }
-        #controls-toggle button { font-family: 'Press Start 2P', cursive; font-size: 0.7rem; padding: 10px; background-color: #0f3460; color: #fff; border: 1px solid #fff; cursor: pointer; width: 100%; }
         
-        /* --- Overlays (Loading/Modals) --- */
+        /* Overlays (Loading/Modals) */
         .game-overlay {
-            position: absolute; 
-            top: 0; left: 0; right: 0; bottom: 0;
-            display: flex;
-            align-items: center; justify-content: center; text-align: center;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; align-items: center; justify-content: center; text-align: center;
             background-color: rgba(26, 26, 46, 0.95);
-            z-index: 100;
-            padding: 20px;
-            box-sizing: border-box;
+            z-index: 100; padding: 20px; box-sizing: border-box;
         }
         #loading-screen { z-index: 101; cursor: pointer; }
         .overlay-content { max-width: 90%; }
@@ -100,110 +93,72 @@
         #high-score-form, #win-high-score-form { margin-top: 15px; }
         #player-name-input, #win-player-name-input { font-family: 'Press Start 2P', cursive; background-color: #1a1a2e; color: #fff; border: 2px solid #0f3460; padding: 10px; font-size: 1rem; width: 70%; text-align: center; }
         #high-score-form button, #win-high-score-form button { margin-top: 10px; }
-        .modal-buttons button { font-family: 'Press Start 2P', cursive; font-size: 1rem; padding: 15px 25px; background-color: #e94560; color: #fff; border: 2px solid #fff; cursor: pointer; transition: background-color 0.2s, color 0.2s; margin: 5px; }
+        .modal-buttons button { font-family: 'Press Start 2P', cursive; font-size: 1rem; padding: 15px 25px; background-color: #e94560; color: #fff; border: 2px solid #fff; cursor: pointer; margin: 5px; }
         
+        /* --- Touch Controls --- */
         #touch-controls {
-            position: fixed; bottom: 0; left: 0; width: 100%;
-            padding: 20px; box-sizing: border-box; 
-            display: none; /* Hidden by default */
+            position: fixed; bottom: 10px; left: 0; width: 100%;
+            padding: 0 20px; box-sizing: border-box; 
+            display: none; /* Hidden by default, enabled via @media */
             justify-content: space-between; align-items: flex-end;
             user-select: none; z-index: 102;
-            pointer-events: none; /* Allow clicks to pass through overlay */
+            pointer-events: none;
         }
-         #touch-controls .touch-button {
+        #touch-controls .touch-button, #controls-toggle button {
             pointer-events: auto; /* Buttons are clickable */
         }
-
-        .touch-dpad { display: flex; gap: 10px; }
-        .touch-button { width: 60px; height: 60px; background-color: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; font-family: sans-serif; }
-        #touch-shoot { width: 80px; height: 80px; }
+        .touch-dpad { display: flex; gap: 15px; }
+        .touch-button { width: 55px; height: 55px; background-color: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; }
+        #touch-shoot { width: 70px; height: 70px; }
         
-        /* Media query for when to switch to vertical layout and hide UI panel */
-        @media (max-width: 1100px) {
-            .game-wrapper {
-                flex-direction: column;
-                width: 100%;
-                height: auto;
-            }
-            #ui-panel {
-                width: 90%;
-                max-width: 600px; /* Match game width */
-                margin-top: 20px;
-                text-align: center;
-                padding-left: 0;
-            }
+        #controls-toggle { position: absolute; top: 0px; right: 0px; }
+        #controls-toggle button { font-family: 'Press Start 2P', cursive; font-size: 0.6rem; padding: 8px; background-color: rgba(15, 52, 96, 0.7); color: #fff; border: 1px solid #fff; cursor: pointer; }
+
+        /* --- Media Queries for Layout Changes --- */
+
+        /* DESKTOP: On wide screens, show the UI panel and arrange side-by-side */
+        @media (min-width: 1100px) {
+            .game-wrapper { gap: 20px; }
+            #ui-panel { display: block; }
         }
 
-         /* Media query for showing touch controls on mobile */
+        /* MOBILE: On touch devices, show touch controls */
         @media (pointer: coarse) {
             #touch-controls { display: flex; }
-            #controls-toggle { display: block; }
         }
     </style>
 </head>
 <body>
     <div class="game-wrapper">
         <div id="game-container">
-            <div id="loading-screen" class="game-overlay">
-                <div class="overlay-content">
-                    <h2>A Sarcgasm.com Production</h2>
-                    <p class="ethos-text">In a world saturated with information, true bliss is found in the cramped cocoon of curated ignorance. Your mission is to violently reject objective reality and build your own echo chamber, one comforting lie at a time. Prepare for... DUHHVANA.</p>
-                    <p class="start-text" id="loading-status">Click or Tap anywhere to begin...</p>
-                </div>
-            </div>
+            <div id="loading-screen" class="game-overlay"></div>
             <canvas id="gameCanvas"></canvas>
-            <div id="message-modal" class="game-overlay">
-                <div class="overlay-content">
-                    <h2 id="message-title"></h2>
-                    <p id="message-text"></p>
-                    <div id="high-score-form" style="display: none;">
-                        <p>You made the leaderboard! Enter your name:</p>
-                        <input type="text" id="player-name-input" maxlength="10" placeholder="Player">
-                        <button id="submit-score-button">Submit</button>
-                    </div>
-                    <div class="modal-buttons">
-                        <button id="restart-button">Play Again</button>
-                        <button id="share-button">Share</button>
-                    </div>
-                </div>
-            </div>
-            <div id="duhhvana-reward-modal" class="game-overlay">
-                <div class="overlay-content">
-                    <h2>You Have Achieved DUHHVANA!</h2>
-                    <p>True bliss is yours. As a reward for your dedication to ignorance, claim what is rightfully yours.</p>
-                    <div id="win-high-score-form" style="display: none;">
-                        <p>You made the leaderboard! Enter your name:</p>
-                        <input type="text" id="win-player-name-input" maxlength="10" placeholder="Player">
-                        <button id="win-submit-score-button">Submit Score</button>
-                    </div>
-                    <div class="modal-buttons">
-                        <button id="claim-reward-button">CLAIM YOUR REWARD</button>
-                        <button id="restart-button-win">Play Again</button>
-                    </div>
-                </div>
-            </div>
+            <div id="message-modal" class="game-overlay"></div>
+            <div id="duhhvana-reward-modal" class="game-overlay"></div>
         </div>
         <div id="ui-panel">
-            <div id="branding">sarcgasm.com</div>
-            <div id="score-display">SCORE: 0</div>
-            <div id="leaderboard"><h2>Leaderboard</h2><ol id="high-scores-list"></ol></div>
-            <div id="controls-toggle" style="display: none;">
-                <button id="touch-toggle-button">Use Swipe Controls</button>
             </div>
-        </div>
     </div>
     <div id="touch-controls">
         <div class="touch-dpad">
             <div class="touch-button" id="touch-left">‹</div>
             <div class="touch-button" id="touch-right">›</div>
         </div>
+        <div id="controls-toggle">
+            <button id="touch-toggle-button">Swipe</button>
+        </div>
         <div class="touch-button" id="touch-shoot">◎</div>
         <div class="touch-button" id="touch-up">⇡</div>
     </div>
 
     <script>
+        // Paste your entire <script> block from the previous version here.
+        // No changes are needed in the JavaScript logic itself.
         window.onload = function() {
-            const gameWrapper = document.querySelector('.game-wrapper');
+            // ALL YOUR EXISTING JS GOES HERE...
+            // Make sure to remove the resizeGame() function and its event listener.
+            // Example structure:
+
             const gameContainer = document.getElementById('game-container');
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
@@ -213,19 +168,31 @@
             canvas.width = INTERNAL_WIDTH;
             canvas.height = INTERNAL_HEIGHT;
 
-            // --- NEW: Responsive Scaling ---
-            function resizeGame() {
-                const viewportWidth = window.innerWidth;
-                const viewportHeight = window.innerHeight;
-                const scaleX = viewportWidth / gameWrapper.offsetWidth;
-                const scaleY = viewportHeight / gameWrapper.offsetHeight;
-                
-                const scale = Math.min(scaleX, scaleY) * 0.95; // 0.95 for some padding
-                
-                gameWrapper.style.transform = `scale(${scale})`;
-            }
-            window.addEventListener('resize', resizeGame);
-            resizeGame(); // Initial resize
+            // NO resizeGame() function needed.
+
+            // The rest of your game code...
+            // GRAVITY, truthsList, soundFiles, player object, etc.
+            // ... all the way to the end of the script.
+        };
+    </script>
+
+    <script>
+        document.querySelector('#loading-screen').innerHTML = `<div class="overlay-content"><h2>A Sarcgasm.com Production</h2><p class="ethos-text">In a world saturated with information, true bliss is found in the cramped cocoon of curated ignorance. Your mission is to violently reject objective reality and build your own echo chamber, one comforting lie at a time. Prepare for... DUHHVANA.</p><p class="start-text" id="loading-status">Click or Tap anywhere to begin...</p></div>`;
+        document.querySelector('#message-modal').innerHTML = `<div class="overlay-content"><h2 id="message-title"></h2><p id="message-text"></p><div id="high-score-form" style="display: none;"><p>You made the leaderboard! Enter your name:</p><input type="text" id="player-name-input" maxlength="10" placeholder="Player"><button id="submit-score-button">Submit</button></div><div class="modal-buttons"><button id="restart-button">Play Again</button><button id="share-button">Share</button></div></div>`;
+        document.querySelector('#duhhvana-reward-modal').innerHTML = `<div class="overlay-content"><h2>You Have Achieved DUHHVANA!</h2><p>True bliss is yours. As a reward for your dedication to ignorance, claim what is rightfully yours.</p><div id="win-high-score-form" style="display: none;"><p>You made the leaderboard! Enter your name:</p><input type="text" id="win-player-name-input" maxlength="10" placeholder="Player"><button id="win-submit-score-button">Submit Score</button></div><div class="modal-buttons"><button id="claim-reward-button">CLAIM YOUR REWARD</button><button id="restart-button-win">Play Again</button></div></div>`;
+        document.querySelector('#ui-panel').innerHTML = `<div id="branding">sarcgasm.com</div><div id="score-display">SCORE: 0</div><div id="leaderboard"><h2>Leaderboard</h2><ol id="high-scores-list"></ol></div>`;
+
+        // And here is the full JavaScript again.
+        // Copy this whole block into your file.
+        window.onload = function() {
+            const gameContainer = document.getElementById('game-container');
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const INTERNAL_WIDTH = 800;
+            const INTERNAL_HEIGHT = 600;
+            canvas.width = INTERNAL_WIDTH;
+            canvas.height = INTERNAL_HEIGHT;
 
             const GRAVITY = 0.5, PLAYER_SPEED = 5, JUMP_FORCE = -12, PROJECTILE_SPEED = 10, OBJECT_SPAWN_RATE = 120, MAX_HIGH_SCORES = 5;
             
@@ -236,7 +203,6 @@
 
             let keys = {}, projectiles = [], fallingObjects = [], platforms = [], frameCount = 0, gameOver = false, gameWon = false, score = 0, audioStarted = false;
 
-            // --- NEW: Added Music Files ---
             const soundFiles = {
                 fire: 'sounds/trump_fakenewsmedia.mp3',
                 jump: 'sounds/trump_jumpingnoise_mockingtrans.mp3',
@@ -247,14 +213,12 @@
                 lieShot: 'sounds/trump_disrespectful.mp3',
                 gameOverSfx: 'sounds/trump_wordwarthree.mp3',
                 duhhvanaSfx: 'sounds/trump_didIsaythatIcantbelieve.mp3',
-                // Music files (placeholders)
                 bgm: 'sounds/bgm.mp3',
                 winMusic: 'sounds/win.mp3',
                 loseMusic: 'sounds/lose.mp3',
                 introMusic: 'sounds/intro.mp3'
             };
             
-            // --- NEW: Fallback sounds for new music ---
             const fallbackSounds = {
                 fire: new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination(),
                 jump: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.05, sustain: 0, release: 0.2 } }).toDestination(),
@@ -272,13 +236,10 @@
             }).toDestination();
             players.crossOrigin = "anonymous";
             
-            // --- MODIFIED: Music playback control ---
             function playSound(soundName) {
                 if (!audioStarted) return;
                 
-                // Stop and play logic for music
                 if (soundName === 'bgm' || soundName === 'winMusic' || soundName === 'loseMusic' || soundName === 'introMusic') {
-                    // Stop all other music before playing a new one
                     ['bgm', 'winMusic', 'loseMusic', 'introMusic'].forEach(m => {
                         if (players.has(m) && players.player(m).state === 'started') players.player(m).stop();
                     });
@@ -288,7 +249,6 @@
                     if (soundName === 'bgm') players.player(soundName).loop = true;
                     players.player(soundName).start();
                 } else {
-                     // Fallback sounds
                      switch(soundName) {
                         case 'fire': fallbackSounds.fire.triggerAttackRelease('C5', '8n'); break;
                         case 'jump': fallbackSounds.jump.triggerAttackRelease('G5', '32n'); break;
@@ -377,7 +337,7 @@
                 document.getElementById('duhhvana-reward-modal').style.display = 'none';
                 if(animationFrameId) cancelAnimationFrame(animationFrameId);
                 
-                playSound('bgm'); // Start BGM on reset
+                playSound('bgm');
                 gameLoop();
             }
 
@@ -407,8 +367,7 @@
                     Tone.start().then(() => Tone.loaded().then(() => {
                         audioStarted = true;
                         loadingScreen.style.display = 'none';
-                        playSound('introMusic'); // Play intro music first
-                        // A short delay before starting the main game allows intro to play
+                        playSound('introMusic');
                         setTimeout(resetGame, 1500); 
                     }));
                 } else {
@@ -445,25 +404,30 @@
                 }
             });
 
-            // --- NEW: Advanced Touch Controls Logic ---
-            let touchMode = 'buttons'; // 'buttons' or 'swipe'
+            let touchMode = 'buttons';
             let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
-            const SWIPE_THRESHOLD = 30; // Min pixels for a swipe
-            const SWIPE_UP_THRESHOLD = -50; // Min vertical pixels for jump
-            const TAP_TIME_THRESHOLD = 200; // Max ms for a tap
+            const SWIPE_THRESHOLD = 30;
+            const SWIPE_UP_THRESHOLD = -50;
+            const TAP_TIME_THRESHOLD = 200;
 
-            const touchControlsUI = document.getElementById('touch-controls');
+            const dPadControls = document.querySelector('.touch-dpad');
+            const shootButton = document.getElementById('touch-shoot');
+            const jumpButton = document.getElementById('touch-up');
             const toggleButton = document.getElementById('touch-toggle-button');
             
             toggleButton.addEventListener('click', () => {
                 if (touchMode === 'buttons') {
                     touchMode = 'swipe';
-                    toggleButton.textContent = 'Use Button Controls';
-                    touchControlsUI.style.display = 'none';
+                    toggleButton.textContent = 'Buttons';
+                    dPadControls.style.visibility = 'hidden';
+                    shootButton.style.visibility = 'hidden';
+                    jumpButton.style.visibility = 'hidden';
                 } else {
                     touchMode = 'buttons';
-                    toggleButton.textContent = 'Use Swipe Controls';
-                    touchControlsUI.style.display = 'flex';
+                    toggleButton.textContent = 'Swipe';
+                    dPadControls.style.visibility = 'visible';
+                    shootButton.style.visibility = 'visible';
+                    jumpButton.style.visibility = 'visible';
                 }
             });
 
@@ -491,58 +455,4 @@
             gameContainer.addEventListener('touchend', (e) => {
                 if (touchMode !== 'swipe') return;
                 e.preventDefault();
-                const touchEndX = e.changedTouches[0].clientX;
-                const touchEndY = e.changedTouches[0].clientY;
-                const touchTime = Date.now() - touchStartTime;
-
-                const deltaX = touchEndX - touchStartX;
-                const deltaY = touchEndY - touchStartY;
-
-                // Reset movement keys
-                keys['ArrowLeft'] = false;
-                keys['ArrowRight'] = false;
-
-                // Check for Swipe Up (Jump)
-                if (deltaY < SWIPE_UP_THRESHOLD && Math.abs(deltaX) < Math.abs(deltaY)) {
-                    if (player.onGround) {
-                        keys['ArrowUp'] = true;
-                        // a little hack to ensure jump key is unset
-                        setTimeout(() => keys['ArrowUp'] = false, 50);
-                    }
-                } 
-                // Check for Tap (Shoot)
-                else if (Math.abs(deltaX) < SWIPE_THRESHOLD && Math.abs(deltaY) < SWIPE_THRESHOLD && touchTime < TAP_TIME_THRESHOLD) {
-                    player.shoot();
-                }
-            }, { passive: false });
-
-
-            // --- Mobile On-Screen Button Controls ---
-            const touchLeft = document.getElementById('touch-left');
-            const touchRight = document.getElementById('touch-right');
-            const touchUp = document.getElementById('touch-up');
-            const touchShoot = document.getElementById('touch-shoot');
-
-            function handleButtonTouch(element, keyName, isShootButton = false) {
-                element.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    if(touchMode !== 'buttons') return;
-                    keys[keyName] = true;
-                    if (isShootButton) player.shoot();
-                }, { passive: false });
-                element.addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    if(touchMode !== 'buttons') return;
-                    keys[keyName] = false;
-                }, { passive: false });
-            }
-            handleButtonTouch(touchLeft, 'ArrowLeft');
-            handleButtonTouch(touchRight, 'ArrowRight');
-            handleButtonTouch(touchUp, 'ArrowUp');
-            handleButtonTouch(touchShoot, 'Space', true);
-
-            displayHighScores();
-        };
-    </script>
-</body>
-</html>
+                const touch
