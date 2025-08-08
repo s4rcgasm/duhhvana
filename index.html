@@ -145,6 +145,35 @@ window.onload = function() {
     canvas.width = 800;
     canvas.height = 600;
 
+    // --- START / AUDIO HANDLER (ADDED) ---
+    const loadingScreen = document.getElementById('loading-screen');
+    let audioStarted = false;
+
+    function startGameHandler(e) {
+        // prevent default for touch events so they don't also fire other handlers
+        if (e && e.preventDefault) try { e.preventDefault(); } catch(_) {}
+
+        // If Tone.js is used in your game, start audio context on user gesture
+        if (window.Tone && !audioStarted) {
+            // Tone.start returns a promise; ignore result here but ensures audio can play.
+            Tone.start().then(() => { audioStarted = true; console.log('Audio started via Tone.'); })
+                .catch(() => { audioStarted = true; console.log('Tone.start() failed or was blocked'); });
+        }
+
+        // hide the overlay and allow the rest of the game to run
+        loadingScreen.style.display = 'none';
+
+        // if you have any init/reset logic, call it here.
+        // e.g. resetGame(); or start your game loop if paused.
+        console.log('Game start triggered by user input.');
+    }
+
+    // Support pointer (mouse/stylus), click (fallback), and touchend (mobile)
+    loadingScreen.addEventListener('pointerdown', startGameHandler, { once: true });
+    loadingScreen.addEventListener('click', startGameHandler, { once: true });
+    loadingScreen.addEventListener('touchend', startGameHandler, { once: true });
+
+    // --- EXISTING INPUT LOGIC (unchanged) ---
     let keys = {}; // unified keys object
 
     // Keyboard
